@@ -1,2 +1,2 @@
-release: python3 manage.py migrate
-web gunicorn pizza.wsgi --log-file-
+release: python manage.py migrate --no-input
+web gunicorn pizza.wsgi --log-file -
