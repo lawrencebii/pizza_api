@@ -3,7 +3,7 @@ from django.shortcuts import get_object_or_404
 from drf_yasg.utils import swagger_auto_schema
 from rest_framework import generics, status
 # Create your views here.
-from rest_framework.permissions import IsAuthenticatedOrReadOnly, IsAdminUser, IsAuthenticated
+from rest_framework.permissions import IsAdminUser, IsAuthenticated
 from rest_framework.response import Response
 
 from . import serializer
@@ -26,8 +26,10 @@ class OrderCreateListView(generics.GenericAPIView):
 
     @swagger_auto_schema(operation_summary="List all orders")
     def get(self, request):
-        orders = Order.objects.all()
-        serializer = self.serializer_class(instance=orders, many=True)
+        isAdmin = request.user.is_superuser
+        forders = Order.objects.all().filter(customer=request.user)
+        allOrders = Order.objects.all()
+        serializer = self.serializer_class(instance=allOrders if isAdmin else forders, many=True)
         return Response(data=serializer.data, status=status.HTTP_200_OK)
 
     @swagger_auto_schema(operation_summary="Create a new order")
@@ -79,7 +81,7 @@ class OrderDetailView(generics.GenericAPIView):
 
 class UpdateOrderStatus(generics.GenericAPIView):
     serializer_class = StatusUpdateSerializer
-    permission_classes = [IsAuthenticatedOrReadOnly]
+    permission_classes = [IsAuthenticated]
 
     @swagger_auto_schema(operation_summary="Update an order status")
     def put(self, request, order_id):
@@ -93,21 +95,23 @@ class UpdateOrderStatus(generics.GenericAPIView):
 
 
 class UserOrdersView(generics.GenericAPIView):
-    permission_classes = [IsAuthenticatedOrReadOnly]
+    permission_classes = [IsAuthenticated, IsAdminUser]
     serializer_class = serializer.OrderDetailSerializer
+    queryset = Order
 
     @swagger_auto_schema(operation_summary="Get all orders for a particular user by id")
     def get(self, request, user_id):
         # user = request.user
         user = User.objects.get(pk=user_id)
         orders = Order.objects.all().filter(customer=user)
-        serial = self.serializer_class(instance=orders)
+        serial = self.serializer_class(instance=orders, many=True)
+
         return Response(data=serial.data, status=status.HTTP_200_OK)
 
 
 class UserOrderDetail(generics.GenericAPIView):
-    serializer_class = serializer.OrderDetailSerializer
-    permission_classes = [IsAuthenticatedOrReadOnly]
+    serializer_class = serializer.OrderSerializer
+    permission_classes = [IsAuthenticated]
 
     @swagger_auto_schema(operation_summary="Get a user's order by user_id and order id")
     def get(self, request, user_id, order_id):
